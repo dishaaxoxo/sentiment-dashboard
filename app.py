@@ -20,70 +20,9 @@ import os
 import re
 import sqlite3
 from datetime import datetime, timedelta
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import pipeline
 
-# ── CONFIG ───────────────────────────────────────────────────────────────────
-MODEL_PATH = "./sentiment_model"   # folder saved by notebook
-DB_PATH    = "./feedback.db"
-LABELS     = {0: "Negative", 1: "Neutral", 2: "Positive"}
-device     = "cuda" if torch.cuda.is_available() else "cpu"
-
-# ── FASTAPI APP ──────────────────────────────────────────────────────────────
-app = FastAPI(
-    title="SentimentAI API",
-    description="Real-time customer feedback sentiment analysis using DistilBERT",
-    version="1.0.0"
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ── DATABASE SETUP ────────────────────────────────────────────────────────────
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS feedback (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            raw_text   TEXT    NOT NULL,
-            clean_text TEXT,
-            label      TEXT    NOT NULL,
-            confidence REAL    NOT NULL,
-            source     TEXT    DEFAULT 'api',
-            created_at TEXT    NOT NULL
-        )
-    """)
-    conn.commit(); conn.close()
-
-def save_to_db(raw_text, clean_text, label, confidence, source="api"):
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "INSERT INTO feedback (raw_text, clean_text, label, confidence, source, created_at) VALUES (?,?,?,?,?,?)",
-        (raw_text, clean_text, label, confidence, source, datetime.utcnow().isoformat())
-    )
-    conn.commit(); conn.close()
-
-# ── MODEL LOADING ─────────────────────────────────────────────────────────────
-tokenizer = None
-model     = None
-
-def load_model():
-    global tokenizer, model
-    if os.path.exists(MODEL_PATH):
-        print(f"✅ Loading fine-tuned model from {MODEL_PATH}")
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-        model     = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
-    else:
-        print("⚠️  Fine-tuned model not found — loading base distilbert-sst2")
-        print("   Run the Jupyter notebook first to generate ./sentiment_model/")
-        tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
-        model     = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
-    model.to(device)
-    model.eval()
-    print(f"✅ Model loaded on {device.upper()}")
+classifier = pipeline("sentiment-analysis")
 
 # ── TEXT CLEANING ─────────────────────────────────────────────────────────────
 def clean_text(text: str) -> str:
@@ -97,30 +36,10 @@ def clean_text(text: str) -> str:
 
 # ── INFERENCE ─────────────────────────────────────────────────────────────────
 def run_inference(text: str):
-    cleaned = clean_text(text)
-    enc = tokenizer(
-        cleaned, max_length=128, padding='max_length',
-        truncation=True, return_tensors='pt'
-    )
-    with torch.no_grad():
-        out = model(
-            input_ids=enc['input_ids'].to(device),
-            attention_mask=enc['attention_mask'].to(device)
-        )
-    probs = torch.softmax(out.logits, dim=1).cpu().numpy()[0]
-    pred  = int(probs.argmax())
-    # Map 2-class SST-2 to 3-class if using base model
-    if len(probs) == 2:
-        if probs[1] > 0.75:
-            label = "Positive"; conf = float(probs[1])
-        elif probs[0] > 0.75:
-            label = "Negative"; conf = float(probs[0])
-        else:
-            label = "Neutral"; conf = float(max(probs[0], probs[1]))
-    else:
-        label = LABELS[pred]
-        conf  = float(probs[pred])
-    return label, round(conf * 100, 2), cleaned
+    result = classifier(text)[0]
+    label = result['label']
+    confidence = round(result['score'] * 100, 2)
+    return label, confidence, text
 
 # ── REQUEST / RESPONSE MODELS ─────────────────────────────────────────────────
 class TextRequest(BaseModel):
@@ -142,7 +61,6 @@ class AnalysisResponse(BaseModel):
 @app.on_event("startup")
 def startup():
     init_db()
-    load_model()
 
 @app.get("/")
 def root():
