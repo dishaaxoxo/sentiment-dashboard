@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FeedbackLens — Sentiment Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --ink:       #1a1714;
+  --ink2:      #3d3830;
+  --ink3:      #7a7368;
+  --ink4:      #b5afa6;
+  --cream:     #faf8f4;
+  --cream2:    #f3f0ea;
+  --cream3:    #ede9e0;
+  --warm:      #e8e2d6;
+  --border:    #ddd8ce;
+  --border2:   #ccc6bb;
+  --orange:    #d4500a;
+  --orange2:   #e8652a;
+  --orange-bg: #fdf2ec;
+  --orange-bd: #f2c9b3;
+  --green:     #1a7a4a;
+  --green-bg:  #edf7f2;
+  --green-bd:  #a8d9be;
+  --red:       #b83232;
+  --red-bg:    #fdf0f0;
+  --red-bd:    #f0b8b8;
+  --blue:      #1e5a9c;
+  --blue-bg:   #eef4fb;
+  --blue-bd:   #b0ccee;
+}
+
+html{scroll-behavior:smooth}
+body{
+  font-family:'Geist',sans-serif;
+  background:var(--cream);
+  color:var(--ink);
+  min-height:100vh;
+  font-size:14px;
+  line-height:1.5;
+}
+
+/* subtle paper texture via SVG */
+body::before{
+  content:'';
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  opacity:0.025;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── SCROLLBAR ───────────────────────────────────── */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--cream2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── HEADER ──────────────────────────────────────── */
+header{
+  position:sticky;top:0;z-index:100;
+  background:var(--ink);
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  padding:0 32px;
+  height:58px;
+  gap:24px;
+}
+.h-logo{
+  display:flex;align-items:center;gap:10px;
+  text-decoration:none;
+}
+.h-logomark{
+  width:28px;height:28px;border-radius:6px;
+  background:var(--orange);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;flex-shrink:0;
+}
+.h-logotype{
+  font-family:'Instrument Serif',serif;
+  font-size:1.15rem;color:#fff;letter-spacing:-0.3px;
+}
+.h-logotype em{color:var(--orange2);font-style:normal}
+.h-nav{
+  display:flex;align-items:center;gap:6px;
+}
+.h-tag{
+  font-family:'Geist Mono',monospace;font-size:0.6rem;
+  padding:3px 10px;border-radius:4px;
+  color:rgba(255,255,255,0.45);
+  border:1px solid rgba(255,255,255,0.12);
+  letter-spacing:0.5px;
+}
+.h-tag.live{
+  color:#5ee89a;border-color:rgba(94,232,154,0.35);
+  background:rgba(94,232,154,0.08);
+  animation:livepulse 2s ease-in-out infinite;
+}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:0.6}}
+
+/* student card */
+.student-block{
+  display:flex;flex-direction:column;align-items:flex-end;
+  gap:1px;
+  padding:6px 12px;
+  border-left:2px solid var(--orange);
+}
+.s-name{
+  font-family:'Instrument Serif',serif;
+  font-size:0.95rem;color:#fff;letter-spacing:-0.2px;line-height:1.2;
+}
+.s-meta{
+  font-family:'Geist Mono',monospace;
+  font-size:0.55rem;color:rgba(255,255,255,0.4);
+  letter-spacing:0.4px;line-height:1.7;text-align:right;
+}
+.s-meta .org{color:var(--orange2);opacity:1}
+
+/* ── PAGE ────────────────────────────────────────── */
+.page{
+  position:relative;z-index:1;
+  padding:28px 32px 56px;
+  max-width:1380px;margin:0 auto;
+}
+
+/* ── SECTION LABEL ───────────────────────────────── */
+.section-eyebrow{
+  font-family:'Geist Mono',monospace;
+  font-size:0.6rem;color:var(--ink3);
+  text-transform:uppercase;letter-spacing:2.5px;
+  margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-eyebrow::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+
+/* ── KPI STRIP ───────────────────────────────────── */
+.kpi-strip{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;
+  margin-bottom:24px;
+  background:white;
+}
+.kpi-item{
+  padding:20px 24px;
+  border-right:1px solid var(--border);
+  position:relative;
+  transition:background 0.18s;
+}
+.kpi-item:last-child{border-right:none}
+.kpi-item:hover{background:var(--cream2)}
+.kpi-accent-line{
+  position:absolute;top:0;left:0;right:0;
+  height:3px;
+}
+.kpi-eyebrow{
+  font-family:'Geist Mono',monospace;
+  font-size:0.58rem;color:var(--ink3);
+  text-transform:uppercase;letter-spacing:1.8px;
+  margin-bottom:8px;
+}
+.kpi-value{
+  font-family:'Instrument Serif',serif;
+  font-size:2.6rem;line-height:1;letter-spacing:-1px;
+  margin-bottom:4px;
+}
+.kpi-value.orange{color:var(--orange)}
+.kpi-value.green{color:var(--green)}
+.kpi-value.red{color:var(--red)}
+.kpi-value.blue{color:var(--blue)}
+.kpi-delta{font-size:0.7rem;color:var(--ink3)}
+.kpi-delta b{font-weight:600}
+.kpi-delta b.up{color:var(--green)}
+.kpi-delta b.dn{color:var(--red)}
+
+/* ── MAIN GRID ───────────────────────────────────── */
+.layout-top{display:grid;grid-template-columns:1fr 320px;gap:18px;margin-bottom:18px}
+.layout-mid{display:grid;grid-template-columns:3fr 2fr;gap:18px;margin-bottom:18px}
+.layout-bot{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+
+/* ── CARD ────────────────────────────────────────── */
+.card{
+  background:white;border:1px solid var(--border);
+  border-radius:12px;padding:24px;
+  animation:slideUp 0.4s ease both;
+}
+.card-header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  margin-bottom:18px;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--cream3);
+}
+.card-title{
+  font-family:'Instrument Serif',serif;
+  font-size:1.05rem;letter-spacing:-0.2px;
+  line-height:1.2;
+}
+.card-sub{
+  font-size:0.68rem;color:var(--ink3);
+  margin-top:2px;font-family:'Geist Mono',monospace;
+  letter-spacing:0.3px;
+}
+.card-badge{
+  font-family:'Geist Mono',monospace;font-size:0.58rem;
+  padding:3px 9px;border-radius:4px;white-space:nowrap;
+  background:var(--cream2);color:var(--ink3);
+  border:1px solid var(--border);
+}
+
+/* ── ANALYZER ────────────────────────────────────── */
+.ta{
+  width:100%;
+  background:var(--cream);
+  border:1px solid var(--border);
+  border-radius:8px;
+  color:var(--ink);
+  font-family:'Geist',sans-serif;
+  font-size:0.84rem;
+  line-height:1.6;
+  padding:14px 16px;
+  resize:none;height:90px;
+  outline:none;
+  transition:border-color 0.18s,box-shadow 0.18s;
+}
+.ta:focus{border-color:var(--orange);box-shadow:0 0 0 3px var(--orange-bg)}
+.ta::placeholder{color:var(--ink4)}
+
+.btn-row{display:flex;gap:8px;margin-top:10px}
+.btn-primary{
+  flex:1;border:none;border-radius:7px;cursor:pointer;
+  background:var(--ink);color:white;
+  font-family:'Geist',sans-serif;font-size:0.82rem;font-weight:600;
+  padding:11px 20px;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  transition:background 0.15s,transform 0.1s;
+  letter-spacing:0.1px;
+}
+.btn-primary:hover{background:var(--ink2)}
+.btn-primary:active{transform:scale(0.98)}
+.btn-secondary{
+  background:white;color:var(--ink2);
+  border:1px solid var(--border2);
+  border-radius:7px;padding:11px 16px;
+  font-size:0.8rem;cursor:pointer;
+  font-family:'Geist',sans-serif;
+  transition:all 0.15s;
+}
+.btn-secondary:hover{background:var(--cream);border-color:var(--ink4)}
+
+/* chips */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;align-items:center}
+.chip-lbl{font-family:'Geist Mono',monospace;font-size:0.58rem;color:var(--ink4);letter-spacing:1px;text-transform:uppercase}
+.chip{
+  font-size:0.68rem;padding:4px 10px;border-radius:20px;
+  border:1px solid var(--border);color:var(--ink3);
+  cursor:pointer;background:var(--cream);
+  transition:all 0.15s;white-space:nowrap;
+}
+.chip:hover{border-color:var(--orange);color:var(--orange);background:var(--orange-bg)}
+
+/* result */
+.result-card{
+  margin-top:14px;border-radius:8px;
+  border:1px solid var(--border);
+  overflow:hidden;
+  transition:border-color 0.3s;
+}
+.result-card.is-pos{border-color:var(--green-bd)}
+.result-card.is-neg{border-color:var(--red-bd)}
+.result-card.is-neu{border-color:var(--blue-bd)}
+.result-top{
+  padding:14px 16px;
+  display:flex;align-items:center;gap:14px;
+}
+.result-top.pos{background:var(--green-bg)}
+.result-top.neg{background:var(--red-bg)}
+.result-top.neu{background:var(--blue-bg)}
+.result-badge{
+  font-family:'Instrument Serif',serif;
+  font-size:1.5rem;letter-spacing:-0.5px;font-weight:400;
+}
+.result-badge.pos{color:var(--green)}
+.result-badge.neg{color:var(--red)}
+.result-badge.neu{color:var(--blue)}
+.result-info{flex:1}
+.result-conf-lbl{font-family:'Geist Mono',monospace;font-size:0.6rem;color:var(--ink3);margin-bottom:5px;text-transform:uppercase;letter-spacing:1.2px}
+.conf-track{height:6px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden}
+.conf-bar{height:100%;border-radius:3px;transition:width 0.5s cubic-bezier(.4,0,.2,1)}
+.conf-bar.pos{background:var(--green)}
+.conf-bar.neg{background:var(--red)}
+.conf-bar.neu{background:var(--blue)}
+.result-bottom{
+  padding:8px 16px;
+  display:flex;justify-content:space-between;align-items:center;
+  background:white;border-top:1px solid var(--border);
+}
+.result-bottom span{font-family:'Geist Mono',monospace;font-size:0.62rem;color:var(--ink3)}
+.result-bottom strong{font-family:'Geist Mono',monospace;font-size:0.72rem;color:var(--ink)}
+
+/* ── DONUT ───────────────────────────────────────── */
+.donut-wrap{display:flex;justify-content:center;padding:6px 0 16px}
+.legend-list{display:flex;flex-direction:column;gap:9px}
+.leg-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--cream3)}
+.leg-row:last-child{border-bottom:none}
+.leg-left{display:flex;align-items:center;gap:8px}
+.leg-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.leg-name{font-size:0.78rem;font-weight:500}
+.leg-bar-wrap{flex:1;height:4px;background:var(--cream3);border-radius:2px;overflow:hidden;max-width:90px}
+.leg-bar{height:100%;border-radius:2px;transition:width 0.8s ease}
+.leg-pct{font-family:'Geist Mono',monospace;font-size:0.7rem;color:var(--ink3);min-width:34px;text-align:right}
+
+/* mini stats */
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.mini-stat{background:var(--cream);border-radius:8px;padding:12px;border:1px solid var(--border)}
+.mini-lbl{font-size:0.64rem;color:var(--ink3);margin-bottom:4px;font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:1px}
+.mini-val{font-family:'Instrument Serif',serif;font-size:1.4rem;color:var(--ink)}
+.mini-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px}
+.mini-fill{height:100%;border-radius:2px;background:var(--orange)}
+
+/* ── TABLE ───────────────────────────────────────── */
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{
+  font-family:'Geist Mono',monospace;font-size:0.57rem;
+  color:var(--ink3);text-transform:uppercase;letter-spacing:1.5px;
+  padding:0 10px 10px;text-align:left;
+  border-bottom:2px solid var(--cream3);
+}
+.data-table td{
+  padding:10px 10px;
+  border-bottom:1px solid var(--cream3);
+  vertical-align:middle;
+}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--cream)}
+.row-text{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.76rem;color:var(--ink2)}
+.status-pill{
+  font-family:'Geist Mono',monospace;
+  font-size:0.6rem;font-weight:500;
+  padding:2px 8px;border-radius:3px;white-space:nowrap;
+  letter-spacing:0.3px;
+}
+.status-pill.pos{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.status-pill.neg{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+.status-pill.neu{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
+.score-track{width:52px;height:4px;background:var(--cream3);border-radius:2px;overflow:hidden}
+.score-fill{height:100%;border-radius:2px}
+.mono-cell{font-family:'Geist Mono',monospace;font-size:0.7rem;color:var(--ink3)}
+
+/* ── PIPELINE ────────────────────────────────────── */
+.pipe-steps{display:flex;flex-direction:column}
+.pipe-item{
+  display:grid;grid-template-columns:36px 1fr 8px;
+  align-items:start;gap:12px;
+  padding:11px 0;
+  border-bottom:1px solid var(--cream3);
+}
+.pipe-item:last-child{border-bottom:none}
+.pipe-num{
+  width:28px;height:28px;border-radius:5px;
+  background:var(--ink);color:white;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Geist Mono',monospace;font-size:0.6rem;font-weight:500;
+  flex-shrink:0;margin-top:2px;
+}
+.pipe-name{font-size:0.8rem;font-weight:600;margin-bottom:2px;color:var(--ink)}
+.pipe-desc{font-family:'Geist Mono',monospace;font-size:0.6rem;color:var(--ink3);line-height:1.5}
+.pipe-dot{width:8px;height:8px;border-radius:50%;background:var(--green);margin-top:10px;flex-shrink:0;box-shadow:0 0 0 2px var(--green-bd)}
+
+/* ── METRICS ─────────────────────────────────────── */
+.f1-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.f1-box{
+  background:var(--cream);border-radius:8px;
+  padding:14px;border:1px solid var(--border);
+  text-align:center;
+}
+.f1-lbl{font-family:'Geist Mono',monospace;font-size:0.57rem;color:var(--ink3);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+.f1-val{font-family:'Instrument Serif',serif;font-size:1.7rem;letter-spacing:-0.5px}
+.f1-sub{font-size:0.62rem;color:var(--ink4);margin-top:3px;font-family:'Geist Mono',monospace}
+.acc-block{background:var(--ink);border-radius:8px;padding:16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.acc-lbl{font-family:'Geist Mono',monospace;font-size:0.62rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1.5px}
+.acc-val{font-family:'Instrument Serif',serif;font-size:2rem;color:white;letter-spacing:-1px}
+.acc-bar-bg{height:4px;background:rgba(255,255,255,0.12);border-radius:2px;overflow:hidden;margin-top:8px;flex:1;margin-left:16px}
+.acc-bar-fill{height:100%;border-radius:2px;background:var(--orange2)}
+.cmat-grid{display:grid;grid-template-columns:28px repeat(3,1fr);gap:2px;font-family:'Geist Mono',monospace;font-size:0.6rem}
+.cmat-hdr{text-align:center;color:var(--ink3);padding-bottom:4px}
+.cmat-row-lbl{display:flex;align-items:center;color:var(--ink3)}
+.cmat-cell{padding:7px 3px;text-align:center;border-radius:4px;font-size:0.62rem;transition:filter 0.15s}
+.cmat-cell:hover{filter:brightness(0.92)}
+.ds-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ds-box{border-radius:7px;padding:11px;background:var(--cream);border:1px solid var(--border)}
+.ds-lbl{font-family:'Geist Mono',monospace;font-size:0.57px;color:var(--ink4);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:3px;font-size:0.57rem}
+.ds-val{font-size:0.78rem;font-weight:600;color:var(--ink)}
+.ds-sub{font-family:'Geist Mono',monospace;font-size:0.6rem;color:var(--ink3);margin-top:1px}
+
+/* ── CHART LEGEND ────────────────────────────────── */
+.chart-legend{display:flex;gap:12px}
+.cl-item{display:flex;align-items:center;gap:5px;font-size:0.68rem;color:var(--ink3)}
+.cl-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* ── ANIMATIONS ──────────────────────────────────── */
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(14px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.card:nth-child(1){animation-delay:0.03s}
+.card:nth-child(2){animation-delay:0.07s}
+.card:nth-child(3){animation-delay:0.11s}
+.card:nth-child(4){animation-delay:0.15s}
+.kpi-item:nth-child(1){animation:slideUp 0.4s 0.0s ease both}
+.kpi-item:nth-child(2){animation:slideUp 0.4s 0.05s ease both}
+.kpi-item:nth-child(3){animation:slideUp 0.4s 0.1s ease both}
+.kpi-item:nth-child(4){animation:slideUp 0.4s 0.15s ease both}
+
+@keyframes newRow{
+  0%{background:var(--orange-bg)}100%{background:transparent}
+}
+.new-row td{animation:newRow 1.2s ease forwards}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="h-logo" href="#">
+    <div class="h-logomark">◈</div>
+    <span class="h-logotype">Feedback<em>Lens</em></span>
+  </a>
+
+  <div class="h-nav">
+    <span class="h-tag">DistilBERT · NLP</span>
+    <span class="h-tag">FastAPI · SQLite</span>
+    <span class="h-tag">v1.0</span>
+    <span class="h-tag live">● Live</span>
+  </div>
+
+  <div class="student-block">
+    <div class="s-name">Disha G</div>
+    <div class="s-meta">
+      Dayanand Sagar University &nbsp;·&nbsp; CSE 2nd Year<br>
+      AI Domain &nbsp;·&nbsp; <span class="org">LaunchED Global</span>
+    </div>
+  </div>
+</header>
+
+<!-- PAGE -->
+<div class="page">
+
+  <!-- KPI STRIP -->
+  <div class="section-eyebrow">Overview</div>
+  <div class="kpi-strip">
+    <div class="kpi-item">
+      <div class="kpi-accent-line" style="background:var(--green)"></div>
+      <div class="kpi-eyebrow">Positive</div>
+      <div class="kpi-value green">847</div>
+      <div class="kpi-delta"><b class="up">↑ 12.4%</b> vs last week</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-accent-line" style="background:var(--red)"></div>
+      <div class="kpi-eyebrow">Negative</div>
+      <div class="kpi-value red">312</div>
+      <div class="kpi-delta"><b class="dn">↓ 3.1%</b> vs last week</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-accent-line" style="background:var(--blue)"></div>
+      <div class="kpi-eyebrow">Neutral</div>
+      <div class="kpi-value blue">201</div>
+      <div class="kpi-delta"><b class="up">↑ 2.8%</b> vs last week</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-accent-line" style="background:var(--orange)"></div>
+      <div class="kpi-eyebrow">Model Accuracy</div>
+      <div class="kpi-value orange">91.4%</div>
+      <div class="kpi-delta">Weighted F1: <b>0.893</b></div>
+    </div>
+  </div>
+
+  <!-- TOP ROW -->
+  <div class="layout-top">
+
+    <!-- ANALYZER -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Sentiment Analyzer</div>
+          <div class="card-sub">Real-time inference · DistilBERT fine-tuned</div>
+        </div>
+        <span class="card-badge">Try it live</span>
+      </div>
+      <textarea class="ta" id="feedInput" placeholder="Paste customer feedback here...">The product quality is excellent and delivery was super fast!</textarea>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="runInference()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg>
+          Run Analysis
+        </button>
+        <button class="btn-secondary" onclick="clearInput()">Clear</button>
+      </div>
+      <div class="chips">
+        <span class="chip-lbl">Try</span>
+        <div class="chip" onclick="tryChip(this)">Great service, loved it!</div>
+        <div class="chip" onclick="tryChip(this)">Terrible, never again</div>
+        <div class="chip" onclick="tryChip(this)">It was okay, nothing special</div>
+        <div class="chip" onclick="tryChip(this)">Product broke after 2 days</div>
+        <div class="chip" onclick="tryChip(this)">Fast shipping, good packaging</div>
+      </div>
+      <div class="result-card is-pos" id="resultCard">
+        <div class="result-top pos" id="resultTop">
+          <div class="result-badge pos" id="resultBadge">Positive</div>
+          <div class="result-info">
+            <div class="result-conf-lbl">Confidence Score</div>
+            <div class="conf-track"><div class="conf-bar pos" id="confBar" style="width:92%"></div></div>
+          </div>
+        </div>
+        <div class="result-bottom">
+          <span id="resultHint">High confidence classification</span>
+          <strong id="confText">92%</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- DONUT -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Distribution</div>
+          <div class="card-sub">1,360 reviews total</div>
+        </div>
+      </div>
+      <div class="donut-wrap">
+        <canvas id="donutC" width="150" height="150"></canvas>
+      </div>
+      <div class="legend-list">
+        <div class="leg-row">
+          <div class="leg-left">
+            <div class="leg-swatch" style="background:var(--green)"></div>
+            <div class="leg-name">Positive</div>
+          </div>
+          <div class="leg-bar-wrap"><div class="leg-bar" style="width:61.7%;background:var(--green)"></div></div>
+          <div class="leg-pct">61.7%</div>
+        </div>
+        <div class="leg-row">
+          <div class="leg-left">
+            <div class="leg-swatch" style="background:var(--red)"></div>
+            <div class="leg-name">Negative</div>
+          </div>
+          <div class="leg-bar-wrap"><div class="leg-bar" style="width:22.8%;background:var(--red)"></div></div>
+          <div class="leg-pct">22.8%</div>
+        </div>
+        <div class="leg-row">
+          <div class="leg-left">
+            <div class="leg-swatch" style="background:var(--blue)"></div>
+            <div class="leg-name">Neutral</div>
+          </div>
+          <div class="leg-bar-wrap"><div class="leg-bar" style="width:14.7%;background:var(--blue)"></div></div>
+          <div class="leg-pct">14.7%</div>
+        </div>
+      </div>
+      <div class="mini-grid">
+        <div class="mini-stat">
+          <div class="mini-lbl">Avg Conf.</div>
+          <div class="mini-val">87.3%</div>
+          <div class="mini-bar"><div class="mini-fill" style="width:87.3%"></div></div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-lbl">/ hour</div>
+          <div class="mini-val">2,400</div>
+          <div class="mini-bar"><div class="mini-fill" style="width:60%;background:var(--blue)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MID ROW -->
+  <div class="layout-mid">
+
+    <!-- TREND CHART -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Sentiment Trend</div>
+          <div class="card-sub">Volume over last 7 days</div>
+        </div>
+        <div class="chart-legend">
+          <div class="cl-item"><div class="cl-sq" style="background:var(--green)"></div>Positive</div>
+          <div class="cl-item"><div class="cl-sq" style="background:var(--red)"></div>Negative</div>
+          <div class="cl-item"><div class="cl-sq" style="background:var(--blue)"></div>Neutral</div>
+        </div>
+      </div>
+      <canvas id="trendC" height="180"></canvas>
+    </div>
+
+    <!-- FEED -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Inference Log</div>
+          <div class="card-sub">Most recent entries</div>
+        </div>
+        <span class="card-badge" id="logBadge">5 entries</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Feedback</th>
+            <th>Label</th>
+            <th>Conf</th>
+          </tr>
+        </thead>
+        <tbody id="feedBody">
+          <tr><td><div class="row-text">The product quality is excellent and delivery was super fast!</div></td><td><span class="status-pill pos">Positive</span></td><td class="mono-cell">92%</td></tr>
+          <tr><td><div class="row-text">Terrible experience, never ordering again from this store.</div></td><td><span class="status-pill neg">Negative</span></td><td class="mono-cell">97%</td></tr>
+          <tr><td><div class="row-text">It was okay, nothing special about the product honestly.</div></td><td><span class="status-pill neu">Neutral</span></td><td class="mono-cell">74%</td></tr>
+          <tr><td><div class="row-text">Fast shipping, love the eco-friendly packaging!</div></td><td><span class="status-pill pos">Positive</span></td><td class="mono-cell">88%</td></tr>
+          <tr><td><div class="row-text">Customer support was completely unhelpful and rude.</div></td><td><span class="status-pill neg">Negative</span></td><td class="mono-cell">91%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- BOT ROW -->
+  <div class="layout-bot">
+
+    <!-- PIPELINE -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">System Pipeline</div>
+          <div class="card-sub">End-to-end architecture — 6 stages</div>
+        </div>
+        <span class="card-badge">All systems ●</span>
+      </div>
+      <div class="pipe-steps">
+        <div class="pipe-item"><div class="pipe-num">01</div><div><div class="pipe-name">Text Preprocessing</div><div class="pipe-desc">regex · lowercasing · stopwords · tokenization</div></div><div class="pipe-dot"></div></div>
+        <div class="pipe-item"><div class="pipe-num">02</div><div><div class="pipe-name">DistilBERT Tokenizer</div><div class="pipe-desc">AutoTokenizer · max_len=128 · attention_mask · padding</div></div><div class="pipe-dot"></div></div>
+        <div class="pipe-item"><div class="pipe-num">03</div><div><div class="pipe-name">Transformer Encoder</div><div class="pipe-desc">distilbert-base-uncased · 768-dim [CLS] embedding</div></div><div class="pipe-dot"></div></div>
+        <div class="pipe-item"><div class="pipe-num">04</div><div><div class="pipe-name">Classification Head</div><div class="pipe-desc">Dropout(0.3) → Linear(768→3) → Softmax</div></div><div class="pipe-dot"></div></div>
+        <div class="pipe-item"><div class="pipe-num">05</div><div><div class="pipe-name">FastAPI REST API</div><div class="pipe-desc">POST /analyze · POST /batch · GET /trends · GET /stats</div></div><div class="pipe-dot"></div></div>
+        <div class="pipe-item"><div class="pipe-num">06</div><div><div class="pipe-name">SQLite + Dashboard</div><div class="pipe-desc">persist · aggregate · visualize · this interface</div></div><div class="pipe-dot"></div></div>
+      </div>
+    </div>
+
+    <!-- EVAL -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Model Evaluation</div>
+          <div class="card-sub">Test split · 15% holdout</div>
+        </div>
+      </div>
+
+      <div class="acc-block">
+        <div>
+          <div class="acc-lbl">Overall Accuracy</div>
+          <div class="acc-val">91.4%</div>
+        </div>
+        <div style="flex:1;margin-left:20px">
+          <div class="acc-bar-bg"><div class="acc-bar-fill" style="width:91.4%"></div></div>
+          <div style="font-family:'Geist Mono',monospace;font-size:0.58rem;color:rgba(255,255,255,0.35);margin-top:5px">Weighted F1: 0.893</div>
+        </div>
+      </div>
+
+      <div class="f1-row">
+        <div class="f1-box">
+          <div class="f1-lbl">F1 Positive</div>
+          <div class="f1-val" style="color:var(--green)">0.93</div>
+          <div class="f1-sub">P 0.94 · R 0.92</div>
+        </div>
+        <div class="f1-box">
+          <div class="f1-lbl">F1 Negative</div>
+          <div class="f1-val" style="color:var(--red)">0.89</div>
+          <div class="f1-sub">P 0.91 · R 0.87</div>
+        </div>
+        <div class="f1-box">
+          <div class="f1-lbl">F1 Neutral</div>
+          <div class="f1-val" style="color:var(--blue)">0.81</div>
+          <div class="f1-sub">P 0.83 · R 0.79</div>
+        </div>
+      </div>
+
+      <div style="font-size:0.72rem;font-weight:600;color:var(--ink2);margin-bottom:8px">Confusion Matrix</div>
+      <div id="cmatrix"></div>
+
+      <div class="ds-pair">
+        <div class="ds-box">
+          <div class="ds-lbl">Dataset</div>
+          <div class="ds-val">Twitter Airline</div>
+          <div class="ds-sub">14,640 samples · Kaggle</div>
+        </div>
+        <div class="ds-box">
+          <div class="ds-lbl">Training</div>
+          <div class="ds-val">3 Epochs · AdamW</div>
+          <div class="ds-sub">lr=2e-5 · batch=32</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── KEY FIX: always point to localhost:8000 regardless of how the file is opened ──
+const API = (window.location.protocol === "file:" || window.location.hostname === "")
+  ? "http://localhost:8000"
+  : window.location.origin;
+
+/* ══════════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════════ */
+function esc(s){
+  return String(s).replace(/[&<>"']/g,m=>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+function pillClass(label){
+  label=(label||"").toLowerCase();
+  if(label.includes("pos")) return "pos";
+  if(label.includes("neg")) return "neg";
+  return "neu";
+}
+function setResult(label,conf){
+  const lc=pillClass(label);
+  const nice=lc==="pos"?"Positive":lc==="neg"?"Negative":"Neutral";
+  document.getElementById("resultCard").className ="result-card is-"+lc;
+  document.getElementById("resultTop").className  ="result-top "+lc;
+  const badge=document.getElementById("resultBadge");
+  badge.className="result-badge "+lc; badge.innerText=nice;
+  const bar=document.getElementById("confBar");
+  bar.className="conf-bar "+lc; bar.style.width=conf+"%";
+  document.getElementById("confText").innerText=conf+"%";
+  const hint=document.getElementById("resultHint");
+  hint.innerText = conf>=90?"High confidence classification"
+                 : conf>=75?"Moderate confidence prediction"
+                 : "Low confidence / mixed sentiment";
+}
+
+/* ══════════════════════════════════════════════════════
+   DONUT CHART
+══════════════════════════════════════════════════════ */
+const C={pos:"#1a7a4a",neg:"#b83232",neu:"#1e5a9c"};
+
+function drawDonut(pos,neg,neu){
+  const canvas=document.getElementById("donutC");
+  if(!canvas) return;
+  const ctx=canvas.getContext("2d");
+  const W=canvas.width, H=canvas.height, cx=W/2, cy=H/2;
+  const R=Math.min(W,H)/2-6, r=R*0.54;
+  ctx.clearRect(0,0,W,H);
+
+  const total=(pos+neg+neu)||1;
+  const slices=[
+    {val:pos,color:C.pos},{val:neg,color:C.neg},{val:neu,color:C.neu}
+  ];
+  let a=-Math.PI/2;
+  slices.forEach(s=>{
+    const sweep=(s.val/total)*Math.PI*2;
+    if(sweep<0.001){a+=sweep;return;}
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,R,a+0.02,a+sweep-0.02);
+    ctx.closePath();
+    ctx.fillStyle=s.color;
+    ctx.fill();
+    a+=sweep;
+  });
+
+  // hole
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle="#fff"; ctx.fill();
+
+  // centre label
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle="#1a1714";
+  ctx.font="bold 20px Geist,sans-serif";
+  ctx.fillText(total.toLocaleString(),cx,cy-7);
+  ctx.font="10px 'Geist Mono',monospace";
+  ctx.fillStyle="#7a7368";
+  ctx.fillText("total",cx,cy+10);
+}
+
+function updateDistribution(pos,neg,neu){
+  const total=(pos+neg+neu)||1;
+  const pcts=[
+    {pct:(pos/total*100).toFixed(1), color:C.pos},
+    {pct:(neg/total*100).toFixed(1), color:C.neg},
+    {pct:(neu/total*100).toFixed(1), color:C.neu},
+  ];
+  const bars=document.querySelectorAll(".leg-bar");
+  const pctEls=document.querySelectorAll(".leg-pct");
+  pcts.forEach((p,i)=>{
+    if(bars[i])   { bars[i].style.width=p.pct+"%"; bars[i].style.background=p.color; }
+    if(pctEls[i]) pctEls[i].innerText=p.pct+"%";
+  });
+  // subtitle
+  document.querySelectorAll(".card-sub").forEach(el=>{
+    if(el.textContent.includes("reviews total"))
+      el.textContent=total.toLocaleString()+" reviews total";
+  });
+  drawDonut(pos,neg,neu);
+}
+
+/* ══════════════════════════════════════════════════════
+   TREND CHART
+══════════════════════════════════════════════════════ */
+function drawTrend(trend){
+  const canvas=document.getElementById("trendC");
+  if(!canvas) return;
+  const W=canvas.parentElement.clientWidth||680;
+  canvas.width=W;
+  const H=180, ctx=canvas.getContext("2d");
+  ctx.clearRect(0,0,W,H);
+
+  const days=Object.keys(trend).sort();
+  if(!days.length){
+    ctx.fillStyle="#b5afa6"; ctx.font="12px Geist,sans-serif";
+    ctx.textAlign="center";
+    ctx.fillText("No data yet — run some analyses first!",W/2,H/2);
+    return;
+  }
+
+  const PAD={top:14,right:16,bottom:30,left:38};
+  const cW=W-PAD.left-PAD.right, cH=H-PAD.top-PAD.bottom;
+  const xStep=cW/Math.max(days.length-1,1);
+
+  let maxV=0;
+  days.forEach(d=>{
+    const s=trend[d];
+    maxV=Math.max(maxV,s.Positive||0,s.Negative||0,s.Neutral||0);
+  });
+  maxV=Math.ceil((maxV||1)*1.2);
+
+  // grid
+  ctx.strokeStyle="#ede9e0"; ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){
+    const y=PAD.top+cH-(g/4)*cH;
+    ctx.beginPath(); ctx.moveTo(PAD.left,y); ctx.lineTo(PAD.left+cW,y); ctx.stroke();
+    ctx.fillStyle="#b5afa6"; ctx.font="9px 'Geist Mono',monospace";
+    ctx.textAlign="right";
+    ctx.fillText(Math.round(g/4*maxV),PAD.left-5,y+3);
+  }
+
+  const series=[
+    {key:"Positive",color:C.pos},
+    {key:"Negative",color:C.neg},
+    {key:"Neutral", color:C.neu}
+  ];
+
+  series.forEach(s=>{
+    const pts=days.map((d,i)=>({
+      x:PAD.left+i*xStep,
+      y:PAD.top+cH-((trend[d][s.key]||0)/maxV)*cH
+    }));
+
+    // filled area
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, PAD.top+cH);
+    pts.forEach(p=>ctx.lineTo(p.x,p.y));
+    ctx.lineTo(pts[pts.length-1].x, PAD.top+cH);
+    ctx.closePath();
+    ctx.fillStyle=s.color+"1a"; ctx.fill();
+
+    // line
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++){
+      const mx=(pts[i-1].x+pts[i].x)/2;
+      ctx.bezierCurveTo(mx,pts[i-1].y,mx,pts[i].y,pts[i].x,pts[i].y);
+    }
+    ctx.strokeStyle=s.color; ctx.lineWidth=2.5; ctx.stroke();
+
+    // dots
+    pts.forEach(p=>{
+      ctx.beginPath(); ctx.arc(p.x,p.y,3.5,0,Math.PI*2);
+      ctx.fillStyle="#fff"; ctx.fill();
+      ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.stroke();
+    });
+  });
+
+  // x labels
+  ctx.fillStyle="#b5afa6"; ctx.font="9px 'Geist Mono',monospace"; ctx.textAlign="center";
+  days.forEach((d,i)=>{
+    const x=PAD.left+i*xStep;
+    const [,mm,dd]=d.split("-");
+    ctx.fillText(mm+"/"+dd,x,H-6);
+  });
+}
+
+/* ══════════════════════════════════════════════════════
+   CONFUSION MATRIX
+══════════════════════════════════════════════════════ */
+function buildMatrix(){
+  const el=document.getElementById("cmatrix");
+  if(!el) return;
+  const data=[[412,18,12],[22,298,24],[16,20,189]];
+  const lbls=["Pos","Neg","Neu"];
+  const baseC={0:C.pos,1:C.neg,2:C.neu};
+  const max=Math.max(...data.flat());
+  let h=`<div class="cmat-grid">`;
+  h+=`<div class="cmat-hdr"></div>`;
+  lbls.forEach(l=>h+=`<div class="cmat-hdr">${l}</div>`);
+  data.forEach((row,ri)=>{
+    h+=`<div class="cmat-row-lbl">${lbls[ri]}</div>`;
+    row.forEach((v,ci)=>{
+      const alpha=(0.12+0.75*(v/max)).toFixed(2);
+      const bg=ri===ci?baseC[ri]:"#b5afa6";
+      const fg=ri===ci?"#fff":"#3d3830";
+      h+=`<div class="cmat-cell" style="background:${bg};opacity:${alpha};color:${fg}">${v}</div>`;
+    });
+  });
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+
+/* ══════════════════════════════════════════════════════
+   ANALYZER
+══════════════════════════════════════════════════════ */
+async function runInference(){
+  const text=document.getElementById("feedInput").value.trim();
+  if(!text){ alert("Please enter feedback text."); return; }
+  document.getElementById("resultHint").innerText="Analyzing…";
+  document.getElementById("confText").innerText="--";
+  try{
+    const res=await fetch(API+"/analyze",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text,source:"dashboard"})
+    });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.detail||"failed");
+    setResult(data.label,Math.round(data.confidence));
+    // refresh everything after a new result
+    await loadStats();
+    await loadTrend();
+    await loadHistory();
+  }catch(err){
+    document.getElementById("resultHint").innerText="Backend connection failed";
+    console.error(err);
+    alert("Could not reach backend at "+API+"\nMake sure uvicorn is running.");
+  }
+}
+function clearInput(){ document.getElementById("feedInput").value=""; }
+function tryChip(el){ document.getElementById("feedInput").value=el.innerText; }
+
+/* ══════════════════════════════════════════════════════
+   DATA LOADERS
+══════════════════════════════════════════════════════ */
+async function loadStats(){
+  try{
+    const res=await fetch(API+"/stats");
+    if(!res.ok) throw new Error();
+    const d=await res.json();
+    // KPI strip
+    const vals=document.querySelectorAll(".kpi-value");
+    if(vals.length>=4){
+      vals[0].innerText=(d.positive??0).toLocaleString();
+      vals[1].innerText=(d.negative??0).toLocaleString();
+      vals[2].innerText=(d.neutral??0).toLocaleString();
+      vals[3].innerText=(d.avg_confidence??0)+"%";
+    }
+    // donut + legend
+    updateDistribution(d.positive||0, d.negative||0, d.neutral||0);
+    // avg conf mini-stat
+    const miniVals=document.querySelectorAll(".mini-val");
+    if(miniVals[0]) miniVals[0].innerText=(d.avg_confidence??0)+"%";
+    const miniBarFill=document.querySelectorAll(".mini-fill");
+    if(miniBarFill[0]) miniBarFill[0].style.width=(d.avg_confidence??0)+"%";
+  }catch(e){
+    console.warn("stats unavailable:",e.message);
+  }
+}
+
+async function loadTrend(){
+  try{
+    const res=await fetch(API+"/trends?days=7");
+    if(!res.ok) throw new Error();
+    const d=await res.json();
+    drawTrend(d.trend||{});
+  }catch(e){
+    console.warn("trends unavailable:",e.message);
+    drawTrend({});
+  }
+}
+
+async function loadHistory(){
+  try{
+    const res=await fetch(API+"/history?limit=5");
+    if(!res.ok) throw new Error();
+    const rows=await res.json();
+    const body=document.getElementById("feedBody");
+    body.innerHTML="";
+    rows.forEach((r,i)=>{
+      const cls=pillClass(r.label);
+      const tr=document.createElement("tr");
+      if(i===0) tr.classList.add("new-row");
+      tr.innerHTML=`
+        <td><div class="row-text">${esc(r.text)}</div></td>
+        <td><span class="status-pill ${cls}">${esc(r.label)}</span></td>
+        <td class="mono-cell">${Math.round(r.confidence)}%</td>`;
+      body.appendChild(tr);
+    });
+    document.getElementById("logBadge").innerText=rows.length+" entries";
+  }catch(e){
+    console.warn("history unavailable:",e.message);
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   STARTUP + AUTO-REFRESH
+══════════════════════════════════════════════════════ */
+window.addEventListener("load",async()=>{
+  buildMatrix();
+  // draw empty trend immediately so canvas isn't blank
+  drawTrend({});
+  // draw donut with placeholder
+  drawDonut(847,312,201);
+
+  // fetch real data
+  await loadStats();
+  await loadTrend();
+  await loadHistory();
+
+  // redraw trend on resize
+  window.addEventListener("resize",loadTrend);
+
+  // auto-refresh every 30 s
+  setInterval(()=>{ loadStats(); loadTrend(); loadHistory(); }, 30000);
+});
+</script>
+</body>
+</html>
