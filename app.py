@@ -244,4 +244,3 @@ def clear_db():
     conn.execute("DELETE FROM feedback")
     conn.commit(); conn.close()
     return {"message": "Database cleared"}
-return render_template("index.html")
